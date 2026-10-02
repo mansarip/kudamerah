@@ -54,6 +54,73 @@ To skip the questions, pass flags: `cargo starter new ~/projects/my-app --fronte
 
 Every name is renamed from `kudamerah` to your project name: crate, binary, database file and titles. The generator itself (`starter/`) is not included in the generated project.
 
+## Deploy a generated project
+
+Build the project on the server, or on a machine with the same operating system and CPU architecture. SolidJS projects need the frontend built first; the other frontend choices have no separate build step.
+
+```sh
+# SolidJS only
+(cd apps/web && npm ci && npm run build)
+
+# All frontend choices
+cargo build --release --locked
+```
+
+Copy the release binary from `target/release/<project-name>-server` to the server. Also copy the matching web assets:
+
+| Frontend | Files to deploy |
+|----------|-----------------|
+| `vanilla` | `apps/web/` |
+| `htmx` | `apps/web/` |
+| `solid` | `apps/web/dist/` |
+| `none` | no web assets |
+
+Use absolute paths in production. The SQLite database directory must be persistent and writable by the service user. For example:
+
+```ini
+BIND_ADDR=127.0.0.1:3000
+DATABASE_PATH=/var/lib/my-app/my-app.db
+WEB_DIR=/opt/my-app/web
+RUST_LOG=info
+```
+
+`WEB_DIR` can be omitted for an API-only project. Migrations are embedded in the binary and run automatically at startup.
+
+A minimal `systemd` service looks like this (replace `my-app` with your project name):
+
+```ini
+[Unit]
+Description=My App
+After=network.target
+
+[Service]
+User=my-app
+Group=my-app
+ExecStart=/opt/my-app/my-app-server
+Environment=BIND_ADDR=127.0.0.1:3000
+Environment=DATABASE_PATH=/var/lib/my-app/my-app.db
+Environment=WEB_DIR=/opt/my-app/web
+Environment=RUST_LOG=info
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+After saving it as `/etc/systemd/system/my-app.service`, start it with:
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now my-app
+curl --fail http://127.0.0.1:3000/api/health
+```
+
+Put a reverse proxy such as Caddy or nginx in front of the service for HTTPS and compression. Run a single application instance against the local SQLite database, and keep the database on a persistent disk. Back it up with SQLite's online backup command:
+
+```sh
+sqlite3 /var/lib/my-app/my-app.db ".backup /path/to/backups/my-app.db"
+```
+
 ## Working on the template
 
 ```sh
