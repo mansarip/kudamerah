@@ -1,0 +1,10 @@
+[package]
+name = "kudamerah"
+description = "Creates new projects from the kudamerah starter template"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

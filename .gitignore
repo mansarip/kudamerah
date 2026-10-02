@@ -1,0 +1,11 @@
+/target
+/data
+*.db
+*.db-shm
+*.db-wal
+.env
+.DS_Store
+# starter:solid:begin
+node_modules/
+dist/
+# starter:solid:end
