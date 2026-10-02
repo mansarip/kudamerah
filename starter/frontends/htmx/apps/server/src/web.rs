@@ -1,22 +1,64 @@
 //! Frontend: server-rendered HTML (maud) enhanced with htmx.
-//! Handlers return full pages or HTML fragments. `apps/web` holds static assets under `/static`.
+//! Handlers return full pages or HTML fragments. Static assets under `/static` can be served
+//! from `apps/web` or embedded at release build.
 
 use std::path::Path;
 
 use axum::{Router, routing::get};
+#[cfg(all(feature = "embed-web", not(debug_assertions)))]
+use axum::{
+    body::Body,
+    extract::Path as AxumPath,
+    http::{StatusCode, header},
+    response::Response,
+};
+#[cfg(all(feature = "embed-web", not(debug_assertions)))]
+use include_dir::{Dir, include_dir};
 use maud::{DOCTYPE, Markup, html};
+#[cfg(any(not(feature = "embed-web"), debug_assertions))]
 use tower_http::services::ServeDir;
 
 use crate::AppState;
 
-/// Static assets (CSS, vendored htmx). Override with `WEB_DIR`.
+/// Static assets for development and separate-file releases. Override with `WEB_DIR`.
 pub const DEFAULT_DIR: &str = "apps/web";
 
 pub fn router(dir: &Path) -> Router<AppState> {
-    Router::new()
+    let router = Router::new()
         .route("/", get(index))
         .merge(notes_ui::router()) // starter:example
-        .nest_service("/static", ServeDir::new(dir))
+        ;
+    #[cfg(all(feature = "embed-web", not(debug_assertions)))]
+    {
+        let _ = dir;
+        router.route("/static/{*path}", get(embedded_asset))
+    }
+    #[cfg(any(not(feature = "embed-web"), debug_assertions))]
+    {
+        router.nest_service("/static", ServeDir::new(dir))
+    }
+}
+
+#[cfg(all(feature = "embed-web", not(debug_assertions)))]
+static WEB: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../web");
+
+#[cfg(all(feature = "embed-web", not(debug_assertions)))]
+async fn embedded_asset(AxumPath(path): AxumPath<String>) -> Response {
+    let Some(file) = WEB.get_file(&path) else {
+        return Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::empty())
+            .expect("valid response");
+    };
+    Response::builder()
+        .header(
+            header::CONTENT_TYPE,
+            mime_guess::from_path(file.path())
+                .first_or_octet_stream()
+                .as_ref(),
+        )
+        .body(Body::from(file.contents()))
+        .expect("valid response")
 }
 
 fn page(title: &str, content: Markup) -> Markup {

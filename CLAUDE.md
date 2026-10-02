@@ -1,6 +1,6 @@
 # Kudamerah
 
-A Rust/Axum modular monolith on SQLite, shipped as a single binary.
+A Rust/Axum modular monolith on SQLite. Production builds can embed the frontend and ship as a single executable.
 
 ## Architecture principles
 
@@ -17,6 +17,7 @@ Prefer simple, low-resource, high-performance solutions. Scale the architecture 
 
 ```
 apps/server/            Axum binary (package `kudamerah-server`)
+  build.rs              tracks frontend changes for embedded release builds
   src/lib.rs            app(): /api router + frontend
   src/config.rs         Config from env vars, with dev defaults
   src/db.rs             SQLite pool (WAL) + embedded migrations
@@ -42,7 +43,7 @@ cargo run                       # server on http://127.0.0.1:3000 (run from repo
 cargo test
 cargo clippy --all-targets -- -D warnings
 cargo fmt
-cargo build --release           # single optimized binary
+./build.sh                       # production wizard: embedded or separate frontend
 ```
 
 <!-- starter:solid:begin -->
@@ -63,9 +64,9 @@ npm run build                   # -> apps/web/dist, served by the server
 - **Migrations:** add `apps/server/migrations/<YYYYMMDDHHMMSS>_<name>.sql`, preferring `STRICT` tables. Never edit a migration after it has been applied anywhere.
 - **Config** comes only from env vars (see `.env.example`). Add new fields to `Config`; don't add a config crate.
 - **Tests:** add tests per feature in `tests/<feature>.rs` using the helpers in `tests/common`. Each test gets a fresh in-memory database.
-- **Frontend:** plain ES modules and CSS in `apps/web`. Don't add a bundler or npm. If an app grows into something rich, move it to SolidJS. <!-- starter:vanilla -->
+- **Frontend:** plain ES modules and CSS in `apps/web`. Don't add a bundler or npm. If an app grows into something rich, move it to SolidJS. Release builds may embed these files through the `embed-web` feature. <!-- starter:vanilla -->
 - **Frontend:** pages and fragments are maud functions in `src/web.rs` (split it into `src/web/` as it grows). Return the smallest fragment that changes. maud escapes interpolated values, so never pass user input to `PreEscaped`. htmx is vendored at `apps/web/htmx.min.js`; upgrade it by replacing that file. <!-- starter:htmx -->
-- **Frontend:** `apps/web` is Vite + SolidJS + TypeScript. Use solid-js primitives before adding libraries, and keep the bundle small. The server serves `apps/web/dist` with an `index.html` fallback, so client-side routes work. <!-- starter:solid -->
+- **Frontend:** `apps/web` is Vite + SolidJS + TypeScript. Use solid-js primitives before adding libraries, and keep the bundle small. The server serves `apps/web/dist` with an `index.html` fallback, so client-side routes work. `./build.sh` builds the Vite app before the Rust release. <!-- starter:solid -->
 - **Frontend:** none. This is an API-only service. If a UI is needed, follow the frontend principles above. <!-- starter:none -->
 <!-- starter:template:begin -->
 

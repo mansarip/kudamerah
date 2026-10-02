@@ -5,9 +5,14 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[features]
+embed-web = ["dep:include_dir", "dep:mime_guess"]
+
 [dependencies]
 axum.workspace = true
+include_dir = { workspace = true, optional = true }
 maud.workspace = true
+mime_guess = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 sqlx.workspace = true

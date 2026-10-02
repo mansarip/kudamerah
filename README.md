@@ -1,6 +1,6 @@
 # Kudamerah
 
-A starter template for small, fast web apps: a Rust/Axum modular monolith on SQLite, shipped as one binary. A wizard generates a clean, ready-to-run project with the frontend you choose.
+A starter template for small, fast web apps: a Rust/Axum modular monolith on SQLite that can ship as one binary, including the frontend. A wizard generates a clean, ready-to-run project with the frontend you choose.
 
 ## Create a project
 
@@ -38,7 +38,7 @@ To skip the questions, pass flags: `cargo starter new ~/projects/my-app --fronte
 
 ## What you get
 
-- **Server** (`apps/server`): Axum 0.8, SQLite via sqlx (WAL mode, migrations embedded in the binary), JSON errors, env-var config, tracing, graceful shutdown, and integration tests against in-memory SQLite.
+- **Server** (`apps/server`): Axum 0.8, SQLite via sqlx (WAL mode, migrations embedded in the binary), optional embedded frontend assets, JSON errors, env-var config, tracing, graceful shutdown, and integration tests against in-memory SQLite.
 - **Frontend** (`apps/web`): one of
 
   | Choice    | Stack                                           | Build step |
@@ -56,17 +56,24 @@ Every name is renamed from `kudamerah` to your project name: crate, binary, data
 
 ## Deploy a generated project
 
-Build the project on the server, or on a machine with the same operating system and CPU architecture. SolidJS projects need the frontend built first; the other frontend choices have no separate build step.
+Every generated project includes a production build wizard. Run it on the server, or on a machine with the same operating system and CPU architecture:
 
 ```sh
-# SolidJS only
-(cd apps/web && npm ci && npm run build)
-
-# All frontend choices
-cargo build --release --locked
+./build.sh
 ```
 
-Copy the release binary from `target/release/<project-name>-server` to the server. Also copy the matching web assets:
+It asks how the frontend should be packaged:
+
+```text
+Production build:
+  1) single    embed the frontend in the server binary
+  2) separate  keep the server binary and frontend files separate
+Choose [1]:
+```
+
+For a non-interactive build, use `./build.sh --single` or `./build.sh --separate`. SolidJS projects automatically run `npm ci` and `npm run build` first. API-only projects skip the question because they already produce one executable.
+
+Both choices create the server executable at `target/release/<project-name>-server`. A single build needs only that executable. A separate build also needs the matching web assets:
 
 | Frontend | Files to deploy |
 |----------|-----------------|
@@ -80,11 +87,10 @@ Use absolute paths in production. The SQLite database directory must be persiste
 ```ini
 BIND_ADDR=127.0.0.1:3000
 DATABASE_PATH=/var/lib/my-app/my-app.db
-WEB_DIR=/opt/my-app/web
 RUST_LOG=info
 ```
 
-`WEB_DIR` can be omitted for an API-only project. Migrations are embedded in the binary and run automatically at startup.
+For a separate build, also set `WEB_DIR=/opt/my-app/web`. A single build ignores `WEB_DIR` in production because its assets are compiled into the executable. Migrations are embedded in both builds and run automatically at startup.
 
 A minimal `systemd` service looks like this (replace `my-app` with your project name):
 
@@ -99,13 +105,14 @@ Group=my-app
 ExecStart=/opt/my-app/my-app-server
 Environment=BIND_ADDR=127.0.0.1:3000
 Environment=DATABASE_PATH=/var/lib/my-app/my-app.db
-Environment=WEB_DIR=/opt/my-app/web
 Environment=RUST_LOG=info
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+Add `Environment=WEB_DIR=/opt/my-app/web` under `[Service]` when using a separate build.
 
 After saving it as `/etc/systemd/system/my-app.service`, start it with:
 

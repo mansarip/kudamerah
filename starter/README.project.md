@@ -2,7 +2,7 @@
 
 {{description}}
 
-A Rust/Axum modular monolith on SQLite, shipped as a single binary.
+A Rust/Axum modular monolith on SQLite that can ship as a single binary, including the frontend.
 The frontend is plain HTML/CSS/JS in `apps/web`, served as-is with no build step. <!-- starter:vanilla -->
 The frontend is server-rendered HTML ([maud](https://maud.lambda.xyz)) enhanced with [htmx](https://htmx.org). <!-- starter:htmx -->
 The frontend is [SolidJS](https://www.solidjs.com) + Vite in `apps/web`, built to `apps/web/dist` and served by the server. <!-- starter:solid -->
@@ -58,15 +58,20 @@ Set through environment variables (see `.env.example`). The defaults are for loc
 
 ## Deploy
 
+Run the production build wizard:
+
 ```sh
-(cd apps/web && npm ci && npm run build) # starter:solid
-cargo build --release
+./build.sh
 ```
 
+For projects with a frontend, it asks whether to embed the frontend in one executable or keep the server and frontend files separate. Use `./build.sh --single` or `./build.sh --separate` in CI. SolidJS dependencies and assets are built automatically. <!-- starter:web -->
+API-only projects build their single executable without asking a packaging question. <!-- starter:none -->
+
+Both choices write the server to `target/release/kudamerah-server`. With `--single`, that executable is the only application artifact to deploy. With `--separate`, also copy `apps/web/` and set `WEB_DIR` on the server. <!-- starter:vanilla -->
+Both choices write the server to `target/release/kudamerah-server`. With `--single`, that executable is the only application artifact to deploy. With `--separate`, also copy `apps/web/` and set `WEB_DIR` on the server. <!-- starter:htmx -->
+Both choices write the server to `target/release/kudamerah-server`. With `--single`, that executable is the only application artifact to deploy. With `--separate`, also copy `apps/web/dist/` and set `WEB_DIR` on the server. <!-- starter:solid -->
 Copy `target/release/kudamerah-server` to the server. <!-- starter:none -->
-Copy `target/release/kudamerah-server` and `apps/web/` to the server, then set `WEB_DIR`. <!-- starter:vanilla -->
-Copy `target/release/kudamerah-server` and `apps/web/` to the server, then set `WEB_DIR`. <!-- starter:htmx -->
-Copy `target/release/kudamerah-server` and `apps/web/dist/` to the server, then set `WEB_DIR`. <!-- starter:solid -->
-Set `DATABASE_PATH` to an absolute path and run the binary under systemd. Put a reverse proxy (e.g. Caddy) in front for TLS and compression.
+
+Set `DATABASE_PATH` to an absolute path and run the binary under systemd. The database directory must be persistent and writable by the service user. Put a reverse proxy (e.g. Caddy) in front for TLS and compression.
 
 Back up the database with `sqlite3 data/kudamerah.db ".backup backup.db"`.
