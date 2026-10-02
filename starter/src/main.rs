@@ -1,4 +1,5 @@
-//! Creates new projects from this starter template.
+//! Creates new projects from this starter template. Run it from a clone of the template:
+//! `cargo starter new <dir>` (an alias in `.cargo/config.toml`).
 //!
 //! How a project is generated (see also "Maintaining the template" in CLAUDE.md):
 //! 1. Frontends other than `vanilla` replace the vanilla files with the overlay in
@@ -12,7 +13,8 @@
 //!    The features are `web`, `example`, the chosen frontend, and `template`, which is
 //!    always off and marks content that only makes sense in the template itself.
 //! 4. `kudamerah` is renamed to the project name in every case style.
-//! 5. `starter/` is deleted, then `cargo update -w`, `cargo fmt` and git run.
+//! 5. The template-only paths (`starter/`, `.cargo/`) are deleted, then
+//!    `cargo update -w`, `cargo fmt` and git run.
 
 use std::{
     env,
@@ -25,8 +27,11 @@ use std::{
 
 type Result<T, E = Box<dyn std::error::Error>> = std::result::Result<T, E>;
 
-/// The template checkout this binary was built from. `new` copies it by default.
+/// The template clone this binary was built from, which is what `new` copies.
 const TEMPLATE_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
+
+/// Paths that only make sense in the template. They are deleted from generated projects.
+const TEMPLATE_PATHS: &[&str] = &["starter", ".cargo"];
 
 /// Paths owned by the default (vanilla) frontend. They are replaced when another frontend is chosen.
 const FRONTEND_PATHS: &[&str] = &[
@@ -50,9 +55,8 @@ const SKIP_DIRS: &[&str] = &[".git", "target", "node_modules", "data", "dist"];
 const USAGE: &str = "\
 Create a new project from the kudamerah starter template.
 
-Usage:
-  kudamerah new <dir> [options]   copy the template into <dir> and configure it
-  kudamerah init [options]        configure the current directory (a fresh template copy)
+Usage (from the template clone):
+  cargo starter new <dir> [options]
 
 Options:
   --name <name>            project name in kebab-case (default: directory name)
@@ -60,8 +64,6 @@ Options:
   --frontend <kind>        vanilla | htmx | solid | none (default: vanilla)
   --example, --no-example  include the notes CRUD example (default: yes)
   --git, --no-git          commit the result to git (default: yes)
-  --template <path|url>    template to copy from (default: $KUDAMERAH_TEMPLATE,
-                           else the checkout this binary was built from)
   -y, --yes                accept defaults and ask nothing
   -h, --help               show this help
 ";
@@ -88,69 +90,28 @@ fn run() -> Result<()> {
         print!("{USAGE}");
         return Ok(());
     }
-    let opts = parse_args(rest)?;
-    match command.as_str() {
-        "new" => {
-            let dir = opts
-                .dir
-                .clone()
-                .ok_or("usage: kudamerah new <dir> [options]")?;
-            new_project(Path::new(&dir), &opts)
-        }
-        "init" => match &opts.dir {
-            Some(dir) => Err(format!(
-                "unexpected argument `{dir}`: init configures the current directory"
-            )
-            .into()),
-            None => init_project(&env::current_dir()?, &opts),
-        },
-        other => Err(format!("unknown command `{other}` (see --help)").into()),
+    if command != "new" {
+        return Err(format!("unknown command `{command}` (see --help)").into());
     }
+    let opts = parse_args(rest)?;
+    let dir = opts
+        .dir
+        .clone()
+        .ok_or("usage: cargo starter new <dir> [options]")?;
+    new_project(Path::new(&dir), &opts)
 }
-
-// ---------------------------------------------------------------------------
-// Commands
 
 fn new_project(dest: &Path, opts: &Options) -> Result<()> {
     if dest.exists() && fs::read_dir(dest)?.next().is_some() {
         return Err(format!("`{}` already exists and is not empty", dest.display()).into());
     }
-    let source = opts
-        .template
-        .clone()
-        .or_else(|| env::var("KUDAMERAH_TEMPLATE").ok())
-        .unwrap_or_else(|| TEMPLATE_ROOT.to_owned());
-
     let plan = Plan::gather(opts, &dir_name(dest))?;
     println!("\nCreating {} in {}", plan.name.kebab, dest.display());
-    copy_template(&source, dest)?;
-    configure(dest, &plan)?;
-    print_next_steps(Some(dest), &plan);
-    Ok(())
-}
-
-fn init_project(root: &Path, opts: &Options) -> Result<()> {
-    if !root.join("starter/frontends").is_dir() {
-        return Err(
-            "no starter/ directory here. Run `init` in a fresh copy of the template, \
-                    or use `kudamerah new <dir>`"
-                .into(),
-        );
-    }
-    let plan = Plan::gather(opts, &dir_name(root))?;
-    if !opts.yes
-        && !confirm(
-            &format!(
-                "Rewrite {} in place? This deletes starter/.",
-                root.display()
-            ),
-            false,
-        )?
-    {
-        return Err("aborted".into());
-    }
-    configure(root, &plan)?;
-    print_next_steps(None, &plan);
+    // `dest` was empty or missing, so a failed run can be cleaned up entirely.
+    copy_template(Path::new(TEMPLATE_ROOT), dest)
+        .and_then(|()| configure(dest, &plan))
+        .inspect_err(|_| drop(fs::remove_dir_all(dest)))?;
+    print_next_steps(dest, &plan);
     Ok(())
 }
 
@@ -165,7 +126,6 @@ struct Options {
     frontend: Option<Frontend>,
     example: Option<bool>,
     git: Option<bool>,
-    template: Option<String>,
     yes: bool,
 }
 
@@ -186,7 +146,6 @@ fn parse_args(args: &[String]) -> Result<Options> {
         match flag {
             "--name" => opts.name = Some(value()?),
             "--description" => opts.description = Some(value()?),
-            "--template" => opts.template = Some(value()?),
             "--frontend" => {
                 let v = value()?;
                 let frontend = Frontend::parse(&v).ok_or_else(|| {
@@ -288,7 +247,7 @@ impl Plan {
     fn gather(opts: &Options, dir_name: &str) -> Result<Self> {
         let ask = !opts.yes;
         if ask {
-            println!("kudamerah: new project wizard (Enter accepts the [default])\n");
+            println!("New project wizard (Enter accepts the [default])\n");
         }
         let default_name = Some(slugify(dir_name))
             .filter(|s| Name::parse(s).is_ok())
@@ -394,24 +353,7 @@ fn choose_frontend() -> io::Result<Frontend> {
 // ---------------------------------------------------------------------------
 // Generation
 
-fn copy_template(source: &str, dest: &Path) -> Result<()> {
-    if source.contains("://") || source.starts_with("git@") {
-        let status = Command::new("git")
-            .args(["clone", "--quiet", "--depth", "1", source])
-            .arg(dest)
-            .status()?;
-        if !status.success() {
-            return Err(format!("git clone {source} failed").into());
-        }
-        fs::remove_dir_all(dest.join(".git"))?;
-        return Ok(());
-    }
-    let src = Path::new(source);
-    if !src.join("starter/frontends").is_dir() {
-        return Err(
-            format!("`{source}` is not a kudamerah template (no starter/ directory)").into(),
-        );
-    }
+fn copy_template(src: &Path, dest: &Path) -> Result<()> {
     for rel in template_files(src)? {
         let from = src.join(&rel);
         if from.is_file() {
@@ -472,7 +414,9 @@ fn configure(root: &Path, plan: &Plan) -> Result<()> {
         }
     }
     fs::rename(starter.join("README.project.md"), root.join("README.md"))?;
-    fs::remove_dir_all(&starter)?;
+    for path in TEMPLATE_PATHS {
+        remove(&root.join(path))?;
+    }
 
     let mut files = Vec::new();
     walk(root, root, &mut files)?;
@@ -504,9 +448,7 @@ fn configure(root: &Path, plan: &Plan) -> Result<()> {
             cmd.args(args).current_dir(root).stdout(Stdio::null());
             step(&format!("git {}", args.join(" ")), &mut cmd)
         };
-        let ready =
-            root.join(".git").exists() || git(&["init", "--quiet", "--initial-branch=main"]);
-        let _ = ready
+        let _ = git(&["init", "--quiet", "--initial-branch=main"])
             && git(&["add", "--all"])
             && git(&[
                 "commit",
@@ -616,16 +558,14 @@ fn apply_markers(text: &str, is_on: &dyn Fn(&str) -> Option<bool>) -> Result<Str
     }
 }
 
-fn print_next_steps(dir: Option<&Path>, plan: &Plan) {
+fn print_next_steps(dir: &Path, plan: &Plan) {
     let example = if plan.example { " + notes example" } else { "" };
     println!(
         "\nDone: {} ({} frontend{example}).\n\nNext steps:",
         plan.name.kebab,
         plan.frontend.name()
     );
-    if let Some(dir) = dir {
-        println!("  cd {}", dir.display());
-    }
+    println!("  cd {}", dir.display());
     if plan.frontend == Frontend::Solid {
         println!("  cargo run                                     # API on http://127.0.0.1:3000");
         println!("  (cd apps/web && npm install && npm run dev)   # UI on http://localhost:5173");

@@ -10,9 +10,9 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 out="${1:-$(mktemp -d)}"
 export CARGO_TARGET_DIR="$out/target" # shared, so dependencies compile once
 
-cargo test --quiet --manifest-path "$root/Cargo.toml" -p kudamerah
-cargo build --quiet --manifest-path "$root/Cargo.toml" -p kudamerah
-wizard="$CARGO_TARGET_DIR/debug/kudamerah"
+cargo test --quiet --manifest-path "$root/Cargo.toml" -p starter
+cargo build --quiet --manifest-path "$root/Cargo.toml" -p starter
+wizard="$CARGO_TARGET_DIR/debug/starter"
 
 for frontend in vanilla htmx solid none; do
   for example in example no-example; do
@@ -20,7 +20,7 @@ for frontend in vanilla htmx solid none; do
     dir="$out/$name"
     echo "==> $name"
     rm -rf "$dir"
-    "$wizard" new "$dir" --template "$root" --frontend "$frontend" "--$example" --no-git --yes >/dev/null
+    "$wizard" new "$dir" --frontend "$frontend" "--$example" --no-git --yes >/dev/null
 
     if grep -rIni --exclude-dir=node_modules -e kudamerah -e 'starter:' "$dir"; then
       echo "leftover template tokens in $name" >&2

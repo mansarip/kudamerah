@@ -1,5 +1,5 @@
 [package]
-name = "kudamerah"
+name = "starter"
 description = "Creates new projects from the kudamerah starter template"
 version.workspace = true
 edition.workspace = true

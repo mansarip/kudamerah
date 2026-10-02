@@ -71,13 +71,13 @@ npm run build                   # -> apps/web/dist, served by the server
 
 ## Maintaining the template
 
-This repo is a starter template. `starter/` is the generator: the `kudamerah` binary, which has no dependencies. See the docs at the top of `starter/src/main.rs`.
+This repo is a starter template. `starter/` is the generator, a package with no dependencies, run from a clone as `cargo starter new <dir>`. That command is an alias in `.cargo/config.toml`. See the docs at the top of `starter/src/main.rs`.
 
-- **Base:** the repo root is the `vanilla` frontend plus the notes example. Here, `cargo run` and `cargo test` exercise that base, and `cargo test -p kudamerah` tests the generator.
+- **Base:** the repo root is the `vanilla` frontend plus the notes example. Here, `cargo run` and `cargo test` exercise that base, and `cargo test -p starter` tests the generator.
+- **Template-only paths:** `starter/` and `.cargo/` are deleted from generated projects (`TEMPLATE_PATHS`).
 - **Optional lines** carry marker comments. A line ending in a `starter:<feature>` comment is kept only when the feature is on. A `starter:<feature>:begin` … `:end` pair, each marker on its own comment line, wraps a block that is kept only when the feature is on. The features are `web`, `example`, `vanilla`, `htmx`, `solid`, `none` and `template`. `template` is always off and marks template-only content like this section. Removing any marker line must still leave valid code.
 - **Frontend overlays:** `starter/frontends/<name>/` mirror repo paths. Generation deletes the vanilla files (`FRONTEND_PATHS` in the generator) and then copies the overlay on top. Some overlays copy base files: htmx copies `apps/server/Cargo.toml` and solid copies `.env.example`. When you change one of those base files, update the copy too.
 - **Example files** are listed in `EXAMPLE_PATHS`. Keep that list in sync when you add example-only files.
 - **The generated README** comes from `starter/README.project.md`. The `kudamerah` / `Kudamerah` / `kudamerah_` / `KUDAMERAH` tokens are renamed in every file, so don't use them for anything that should survive generation.
 - **Before committing a template change,** run `starter/test.sh`. It generates all 8 frontend × example variants and runs fmt, clippy, tests, a leftover-token check and the npm build.
-- **After changing `starter/src`,** reinstall the generator with `cargo install --path starter`.
 <!-- starter:template:end -->

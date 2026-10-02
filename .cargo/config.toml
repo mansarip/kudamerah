@@ -1,0 +1,4 @@
+# Template-only (removed from generated projects).
+# `cargo starter new <dir>` runs the project wizard in starter/.
+[alias]
+starter = "run --quiet --package starter --"

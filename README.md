@@ -4,20 +4,21 @@ A starter template for small, fast web apps: a Rust/Axum modular monolith on SQL
 
 ## Create a project
 
-Install the generator once. It remembers where this template lives:
+Clone the template once and keep it around. `git pull` gets template updates.
 
 ```sh
-cargo install --path starter
+git clone https://github.com/mansarip/kudamerah ~/kudamerah
 ```
 
-Then run it from anywhere:
+To create a project, run the wizard from inside the clone. Point it at where the new project should go:
 
 ```sh
-kudamerah new my-app
+cd ~/kudamerah
+cargo starter new ~/projects/my-app
 ```
 
 ```
-kudamerah: new project wizard (Enter accepts the [default])
+New project wizard (Enter accepts the [default])
 
 Project name [my-app]:
 Description (optional): Booking system for a small clinic
@@ -31,13 +32,9 @@ Include the notes example (CRUD, migration, tests)? [Y/n]:
 Commit the result to git? [Y/n]:
 ```
 
-To skip the questions, pass flags: `kudamerah new my-app --frontend htmx --no-example --yes`. `kudamerah --help` lists all flags.
+To skip the questions, pass flags: `cargo starter new ~/projects/my-app --frontend htmx --no-example --yes`. `cargo starter --help` lists all flags.
 
-Other ways to run it:
-
-- **Without installing:** `cargo run -p kudamerah -- new ../my-app`
-- **From a clone or a GitHub "Use this template" copy:** run `cargo run -p kudamerah -- init` inside it.
-- **From a remote template:** `kudamerah new my-app --template https://github.com/mansarip/kudamerah`
+`cargo starter` is an alias, defined in `.cargo/config.toml`, for `cargo run -p starter --`. Nothing is installed globally. The first run compiles the generator in a few seconds; it has no dependencies. The new project is a clean copy with its own git history, and it has no link back to this template.
 
 ## What you get
 
@@ -62,7 +59,7 @@ Every name is renamed from `kudamerah` to your project name: crate, binary, data
 ```sh
 cargo run                 # the base: vanilla frontend + notes example
 cargo test                # base tests
-cargo test -p kudamerah   # generator tests
+cargo test -p starter     # generator tests
 starter/test.sh           # generate and check all 8 variants
 ```
 
