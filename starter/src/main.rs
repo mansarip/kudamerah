@@ -472,11 +472,28 @@ fn render(text: &str, plan: &Plan) -> Result<String, String> {
     Ok(rename(&text, &plan.name))
 }
 
+/// Renames in one pass, so a name that itself contains `kudamerah` is not renamed again.
 fn rename(text: &str, name: &Name) -> String {
-    text.replace("kudamerah_", &format!("{}_", name.snake))
-        .replace("KUDAMERAH", &name.screaming)
-        .replace("Kudamerah", &name.title)
-        .replace("kudamerah", &name.kebab)
+    let forms = [
+        ("kudamerah_", format!("{}_", name.snake)),
+        ("KUDAMERAH", name.screaming.clone()),
+        ("Kudamerah", name.title.clone()),
+        ("kudamerah", name.kebab.clone()),
+    ];
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(i) = rest.find(['k', 'K']) {
+        out.push_str(&rest[..i]);
+        rest = &rest[i..];
+        let (from, to) = forms
+            .iter()
+            .find(|(from, _)| rest.starts_with(from))
+            .map_or((&rest[..1], &rest[..1]), |(from, to)| (*from, to.as_str()));
+        out.push_str(to);
+        rest = &rest[from.len()..];
+    }
+    out.push_str(rest);
+    out
 }
 
 #[derive(Debug, PartialEq)]
@@ -764,6 +781,12 @@ mod tests {
         assert_eq!(
             rename(text, &name),
             "red-fox-server red_fox_server Red Fox RED_FOX_PORT data/red-fox.db"
+        );
+        let name = Name::parse("kudamerah-app").unwrap();
+        assert_eq!(
+            rename(text, &name),
+            "kudamerah-app-server kudamerah_app_server Kudamerah App KUDAMERAH_APP_PORT \
+             data/kudamerah-app.db"
         );
     }
 
