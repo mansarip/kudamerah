@@ -2,6 +2,33 @@
 
 A starter template for small, fast web apps: a Rust/Axum modular monolith on SQLite that can ship as one binary, including the frontend. A wizard generates a clean, ready-to-run project with the frontend you choose.
 
+## Quick start: develop, build, deploy
+
+Requires Git and Rust 1.94+ with Cargo. SolidJS projects also need Node 22+ and npm; the other frontends need no Node tooling. SQLite is bundled.
+
+```sh
+git clone https://github.com/mansarip/kudamerah ~/kudamerah
+cd ~/kudamerah
+cargo starter new ~/projects/my-app --frontend vanilla --yes
+cd ~/projects/my-app
+cargo run                       # open http://127.0.0.1:3000
+```
+
+The first run creates `data/my-app.db` and applies migrations automatically. After stopping the dev server with Ctrl+C:
+
+```sh
+cargo test
+./build.sh --single              # target/release/my-app-server
+```
+
+Build on the target server or a machine with the same OS and CPU architecture, then copy `target/release/my-app-server` to the server. Run it with `DATABASE_PATH` pointing to a persistent, writable location:
+
+```sh
+DATABASE_PATH=/var/lib/my-app/my-app.db BIND_ADDR=127.0.0.1:3000 RUST_LOG=info ./my-app-server
+```
+
+For a persistent service and public HTTPS, follow [Deploy a generated project](#deploy-a-generated-project) below. The binary includes the frontend; the SQLite database stays on disk separately.
+
 ## Create a project
 
 Clone the template once and keep it around. `git pull` gets template updates.
@@ -53,6 +80,39 @@ To skip the questions, pass flags: `cargo starter new ~/projects/my-app --fronte
 - **Footprint:** the release build is a ~4 MB binary using ~5 MB RAM.
 
 Every name is renamed from `kudamerah` to your project name: crate, binary, database file and titles. The generator itself (`starter/`) is not included in the generated project.
+
+## Coming from JavaScript / TypeScript
+
+The backend is Rust, but the workflow should feel familiar. Cargo manages dependencies, compiles the server and runs tests. You do not need a separate dependency-install command before `cargo run`.
+
+| In JS/TS | In this project |
+|----------|-----------------|
+| `package.json` / `package-lock.json` | `Cargo.toml` / `Cargo.lock` for Rust packages and pinned dependencies |
+| npm workspaces | A Cargo workspace; `apps/server` is a Rust package (a crate) |
+| `npm run dev` | `cargo run` builds and starts the backend; restart it after Rust changes |
+| `tsc --noEmit` | `cargo check` checks Rust without producing the final executable |
+| ESLint / Prettier | `cargo clippy --all-targets -- -D warnings` / `cargo fmt` |
+| Express or Fastify routes | Axum routers and handlers in `apps/server/src/modules/` |
+| TypeScript interfaces and JSON conversion | Rust structs with Serde's `Serialize` / `Deserialize` |
+| `Promise<T>` and `async` / `await` | Rust futures and `async` / `.await`, run by Tokio |
+| `process.env` | `std::env`, read in `apps/server/src/config.rs` |
+
+Rust types are checked at compile time. `Option<T>` represents a value that may be absent; `Result<T, E>` represents success or an error. The `?` operator propagates errors to the caller, and this project's `AppError` converts handler errors into HTTP responses. Ownership and borrowing (`&T`) let code use values without a garbage collector; use compiler messages to see when a value should be borrowed, moved or cloned.
+
+Start with `apps/server/src/modules/notes.rs` if you included the example: it contains the routes, request/response types and database queries for one feature. Register new feature modules in `apps/server/src/modules/mod.rs`. SQL migrations live in `apps/server/migrations` and run at startup; sqlx executes SQL directly rather than providing a JavaScript-style ORM.
+
+For a familiar frontend workflow, choose `--frontend solid` when generating the project. Keep `cargo run` running in one terminal, then use a second terminal in the generated project:
+
+```sh
+cd apps/web
+npm install
+npm run dev                     # http://localhost:5173; /api proxies to Rust
+npm run check                   # TypeScript check
+```
+
+Vite provides frontend hot reload. From the project root, `./build.sh --single` builds both the frontend and backend for deployment; Node and npm are needed at build time, but are not needed to run the server binary. With `vanilla`, edit `apps/web` and refresh the browser; with `htmx`, HTML is rendered by Rust using maud, so template changes require restarting `cargo run`.
+
+Configuration comes from environment variables. `.env.example` documents them, but `.env` files are **not loaded automatically**: export variables in your shell or configure them in your service. For example, `BIND_ADDR=127.0.0.1:4000 cargo run` changes the backend port.
 
 ## Deploy a generated project
 
