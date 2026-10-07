@@ -1,4 +1,6 @@
-# Kudamerah
+<p align="center">
+  <img src="kudamerah.png" alt="Kudamerah">
+</p>
 
 A starter template for small, fast web apps: a Rust/Axum modular monolith on SQLite that can ship as one binary, including the frontend. A wizard generates a clean, ready-to-run project with the frontend you choose.
 

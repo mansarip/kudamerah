@@ -31,7 +31,7 @@ type Result<T, E = Box<dyn std::error::Error>> = std::result::Result<T, E>;
 const TEMPLATE_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
 
 /// Paths that only make sense in the template. They are deleted from generated projects.
-const TEMPLATE_PATHS: &[&str] = &["starter", ".cargo"];
+const TEMPLATE_PATHS: &[&str] = &["starter", ".cargo", "kudamerah.png"];
 
 /// Paths owned by the default (vanilla) frontend. They are replaced when another frontend is chosen.
 const FRONTEND_PATHS: &[&str] = &[
